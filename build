@@ -1,0 +1,139 @@
+#!/bin/bash
+export LC_ALL=C
+set -e -o pipefail
+
+if [ $# -eq 0 ]; then
+    echo "No arguments provided"
+    exit 1
+fi
+
+check_sig() {
+    if gpg --verify $1 $2; then
+        printf "$green> GPG signature looks good$reset\n"
+    else
+        printf "$red> GPG signature for this libdogecoin release is invalid! This is BAD and may mean the release has been tampered with. It is strongly recommended that you report this to the libdogecoin developers.$reset\n"
+        exit 1;
+    fi
+}
+
+for i in "$@"
+do
+case $i in
+    -h=*|--host=*)
+        HOST="${i#*=}"
+        ALL_HOST_TRIPLETS=($HOST)
+        case "$ALL_HOST_TRIPLETS" in
+            "arm-linux-gnueabihf")
+                OS=linux
+                ARCH=arm
+            ;;
+            "aarch64-linux-gnu")
+                OS=linux
+                ARCH=arm64
+            ;;
+            "x86_64-w64-mingw32")
+                OS=windows
+                ARCH=amd64
+            ;;
+            "i686-w64-mingw32")
+                OS=windows
+                ARCH=386
+            ;;
+            "aarch64-apple-darwin14")
+                OS=darwin
+                ARCH=arm64
+            ;;
+            "x86_64-apple-darwin14")
+                OS=darwin
+                ARCH=amd64
+            ;;
+            "x86_64-pc-linux-gnu")
+                OS=linux
+                ARCH=amd64
+            ;;
+            "i686-pc-linux-gnu")
+                OS=linux
+                ARCH=386
+            ;;
+            *)
+                ERROR=1
+            ;;
+        esac
+    ;;
+    -o=*|--os=*)
+        OS="${i#*=}"
+    ;;
+    -p=*|--prefix=*)
+        BUILD_PREFIX="${i#*=}"
+    ;;
+    -t=*|--tag=*)
+        TAG="${i#*=}"
+    ;;
+    --docker)
+    ;;
+    *)
+        ERROR=1
+    ;;
+esac
+done
+
+if [ "$ERROR" ]; then
+    echo "Please provide a host to build and try again."
+    exit $ERROR
+fi
+
+if [ ! "$TAG" ]; then
+    TAG=0.1.0
+fi
+
+reset="\033[0m"
+red="\033[31m"
+green="\033[32m"
+ARCHIVE=""
+FILE="libdogecoin-$TAG-"
+EXTENSION=".tar.gz"
+CHECKSUMS="SHA256SUMS.asc"
+URL=https://github.com/dogecoinfoundation/libdogecoin/releases/download/v0.1.0/
+
+if [[ "$ALL_HOST_TRIPLETS" != "" ]]; then
+    END=$((${#ALL_HOST_TRIPLETS[@]} - 1))
+    curl -L -O $URL$CHECKSUMS
+    curl https://raw.githubusercontent.com/dogecoinfoundation/libdogecoin/main/contrib/signing-keys/xanimo-key.pgp | gpg --import
+    check_sig $CHECKSUMS
+    for i in "${!ALL_HOST_TRIPLETS[@]}"
+    do
+    :
+        TARGET_HOST_TRIPLET="${ALL_HOST_TRIPLETS[$i]}"
+        BUILD_PREFIX="`pwd`/libs/$OS/$ARCH"
+        echo $BUILD_PREFIX
+        SIG_STATUS=""
+        if [ ! -d "$BUILD_PREFIX" ]; then
+            mkdir -p $BUILD_PREFIX
+        fi
+        if [ ! -d "include" ]; then
+            mkdir -p include
+        fi
+        if [[ "$TARGET_HOST_TRIPLET" != "*-mingw32" ]]; then
+            ARCHIVE=$FILE$TARGET_HOST_TRIPLET$EXTENSION
+            curl -L -O "$URL$ARCHIVE"
+            SIG_STATUS=$(grep "$ARCHIVE" "$CHECKSUMS" | sha256sum -c | grep OK)
+            if [ "$SIG_STATUS" == "$ARCHIVE: OK" ]; then
+                printf "$green> checksum looks good$reset\n"
+            else
+                printf "$red> checksum for this libdogecoin release is invalid! This is BAD and may mean the release has been tampered with. It is strongly recommended that you report this to the libdogecoin developers.$reset\n"
+                exit 1;
+            fi
+            tar xvf $ARCHIVE "$FILE$TARGET_HOST_TRIPLET/lib/libdogecoin.a"
+            tar xvf $ARCHIVE "$FILE$TARGET_HOST_TRIPLET/include/libdogecoin.h"
+            mv $FILE$TARGET_HOST_TRIPLET/lib/libdogecoin.a libs/$OS/$ARCH
+            mv $FILE$TARGET_HOST_TRIPLET/include/libdogecoin.h include/
+            rm -rf $FILE$TARGET_HOST_TRIPLET*
+        fi
+
+    done
+    rm $CHECKSUMS
+fi
+
+CGO_ENABLED=1 GOOS="${OS}" GOARCH="${ARCH}" go build -x -work -ldflags '-linkmode external -extldflags "-static"' .
+
+go test -v

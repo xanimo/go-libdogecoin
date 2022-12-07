@@ -4,15 +4,14 @@ on: [push, pull_request]
 
 jobs:
   build-matrix:
-    name: Build Go Binary
+    name: Build ${{ matrix.name }}
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         name:
             - armhf-linux
             - aarch64-linux
             - x86_64-linux-dbg
-            - aarch64-macos
             - x86_64-macos
             - x86_64-win
             - i686-win
@@ -40,35 +39,25 @@ jobs:
             goarch: 386
           - name: x86_64-macos
             host: x86_64-apple-darwin14
-            runs-on: macos-latest
+            runs-on: darwin-latest
             goos: darwin
             goarch: amd64
-          - name: aarch64-macos
-            host: arm64-apple-darwin14
-            runs-on: macos-latest
-            goos: darwin
-            goarch: arm64
           - name: x86_64-win
             host: x86_64-w64-mingw32
             runs-on: windows-latest
             goos: windows
             goarch: amd64
-            plat-name: amd64
           - name: i686-win
             host: i686-w64-mingw32
             runs-on: windows-latest
             goos: windows
             goarch: 386
-            plat-name: win32
 
     runs-on: ${{ matrix.runs-on }}
 
     steps:
     - uses: actions/checkout@v3
-    - uses: wangyoucao577/go-release-action@v1.34
-      with:
-        # github_token: ${{ secrets.GITHUB_TOKEN }}
-        goos: ${{ matrix.goos }}
-        goarch: ${{ matrix.goarch }}
-        binary_name: "libdogecoin"
-        extra_files: LICENSE README.md
+    - uses: actions/setup-go@v3
+
+    - name: "Build binary"
+      run: ./build --host=${{ matrix.host }}
