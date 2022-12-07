@@ -3,7 +3,9 @@ package libdogecoin
 /*
 #cgo  CFLAGS: -I${SRCDIR}/include -fPIC
 #cgo linux,amd64 LDFLAGS: -L${SRCDIR}/build/linux/amd64 -ldogecoin -levent -lm -Wl,-rpath,${SRCDIR}/build/linux/amd64
-#cgo linux,arm64 LDFLAGS: -L${SRCDIR}/build/linux/arm64 -ldogecoin -lm -Wl,-rpath,${SRCDIR}/build/linux/arm64
+#cgo linux,arm64 LDFLAGS: -L${SRCDIR}/build/linux/arm64 -ldogecoin -levent -lm -Wl,-rpath,${SRCDIR}/build/linux/arm64
+#cgo linux,386 LDFLAGS: -L${SRCDIR}/build/linux/386 -ldogecoin -levent -lm -Wl,-rpath,${SRCDIR}/build/linux/386
+#cgo linux,arm LDFLAGS: -L${SRCDIR}/build/linux/arm -ldogecoin -levent -lm -Wl,-rpath,${SRCDIR}/build/linux/arm
 #cgo darwin,amd64 LDFLAGS: -L${SRCDIR}/build/darwin/amd64 -ldogecoin -lm -Wl,-rpath,${SRCDIR}/build/darwin/amd64
 #cgo windows,amd64 LDFLAGS: -L${SRCDIR}/build/windows/amd64 -ldogecoin -lm -Wl,-rpath,${SRCDIR}/build/windows/amd64
 #cgo windows,386 LDFLAGS: -L${SRCDIR}/build/windows/386 -ldogecoin -lm -Wl,-rpath,${SRCDIR}/build/windows/386
@@ -206,4 +208,3 @@ func W_store_raw_transaction(incoming_raw_tx string) (result int) {
 	result = int(C.store_raw_transaction(c_incoming_raw_tx))
 	return
 }
-
